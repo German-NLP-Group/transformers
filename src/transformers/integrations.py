@@ -610,9 +610,14 @@ class AzureMLCallback(TrainerCallback):
 class MLflowCallback(TrainerCallback):
     """
     A :class:`~transformers.TrainerCallback` that sends the logs to `MLflow <https://www.mlflow.org/>`__.
+
+    Args:
+        mlflow_experiment_name (:obj:`str`, `optional`):
+            The MLflow experiment name. If not set the ``ML_FLOW_CALLBACK_EXPERIMENT_NAME`` environment variable is
+            used. If this is not set MLflow logs to the default experiment.
     """
 
-    def __init__(self):
+    def __init__(self, mlflow_experiment_name=None):
         assert is_mlflow_available(), "MLflowCallback requires mlflow to be installed. Run `pip install mlflow`."
         import mlflow
 
@@ -622,6 +627,10 @@ class MLflowCallback(TrainerCallback):
         self._initialized = False
         self._log_artifacts = False
         self._ml_flow = mlflow
+
+        self._mlflow_experiment_name = (
+            os.getenv("ML_FLOW_CALLBACK_EXPERIMENT_NAME") if mlflow_experiment_name is None else mlflow_experiment_name
+        )
 
     def setup(self, args, state, model):
         """
@@ -639,6 +648,8 @@ class MLflowCallback(TrainerCallback):
         if log_artifacts in {"TRUE", "1"}:
             self._log_artifacts = True
         if state.is_world_process_zero:
+            if self._mlflow_experiment_name is not None:
+                self._ml_flow.set_experiment(self._mlflow_experiment_name)
             self._ml_flow.start_run()
             combined_dict = args.to_dict()
             if hasattr(model, "config") and model.config is not None:
